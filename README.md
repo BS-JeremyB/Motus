@@ -643,12 +643,4 @@ function validateAttempt() {
 
 ---
 
-## **Conclusion**
-
-En suivant ce plan détaillé, vous pouvez démontrer l'avancement du projet étape par étape, en mettant l'accent sur chaque fonctionnalité et en fournissant des tests pour valider chaque cas. Cela permet de montrer clairement comment le projet évolue et comment chaque partie contribue au résultat final.
-
----
-
-**N'hésitez pas** à me faire savoir si vous avez besoin de plus de détails sur une étape spécifique ou si vous souhaitez approfondir certains aspects du code ou des tests. Je suis là pour vous aider à réussir votre démonstration.
-
-Bonne chance avec votre projet !
+## **FIN**
