@@ -1,30 +1,35 @@
-// Liste des mots avec des tailles différentes
-const wordList = [
-    "CHAT", "SOURIS", "ORANGE", "CHIEN", "MONDE", "JARDIN", "ELEPHANT",
-    "VOITURE", "BALLON", "MONTAGNE", "ARBRE", "FENETRE", "HORLOGE",
-    "NOURRITURE", "BIBLIOTHEQUE", "AVION", "PLANETE", "CROCODILE", "TELEPHONE", "AVENTURE"
-];
-
-// Sélectionner un mot aléatoire de la liste
-function selectRandomWord() {
-    const randomIndex = Math.floor(Math.random() * wordList.length);
-    return wordList[randomIndex].toUpperCase();
-}
-
-let secretWord = selectRandomWord(); // Le mot à deviner est sélectionné aléatoirement
+// Variables initiales
+let secretWord;
 let currentRow = 0;
 let currentCol = 1; // Commence à 1 pour éviter la première lettre qui est fixe
 let correctLetters = []; // Stocke les lettres correctes trouvées
-let firstLetterLocked = secretWord[0];
+let firstLetterLocked;
 let gameOver = false; // Variable pour vérifier si la partie est terminée
-
-console.log(secretWord);
 
 const grid = document.getElementById("grid");
 const messageContainer = document.getElementById("message"); 
 const replayButton = document.getElementById("replayButton");
 
 replayButton.addEventListener("click", resetGame);
+
+// Fonction pour sélectionner un mot aléatoire depuis l'API
+function selectRandomWord() {
+    return fetch('https://localhost:7110/api/Lexique/randomword/')
+        .then(response => {
+            if (!response.ok) {
+                console.error('Échec de la récupération du mot aléatoire');
+                return null;
+            }
+            return response.text();
+        })
+        .then(word => {
+            return word ? word.toUpperCase() : null;
+        })
+        .catch(error => {
+            console.error('Erreur lors de la récupération du mot aléatoire:', error);
+            return null;
+        });
+}
 
 // Mettre à jour dynamiquement la grille en fonction de la taille du mot
 function updateGridSize() {
@@ -55,11 +60,71 @@ function setFirstLetter() {
     firstCell.classList.add('fixed'); // Empêche d'écrire dessus
 }
 
-// Mise à jour de la grille pour le mot au début de la partie
-updateGridSize();
-setFirstLetter();
+// Placer les lettres correctes sur la ligne suivante
+function placeCorrectLetters() {
+    const cells = document.querySelectorAll('.grid-cell');
+    for (let i = 0; i < secretWord.length; i++) {
+        if (correctLetters[i]) {
+            const cell = cells[currentRow * secretWord.length + i];
+            const cellContent = cell.querySelector('.cell-content');
+            cellContent.textContent = correctLetters[i];
+        }
+    }
+}
 
-// Mise à jour de la grille avec la lettre saisie
+// Afficher un message sous la grille
+function showMessage(msg, showButton = false) {
+    messageContainer.style.display = 'block';
+    messageContainer.textContent = msg;
+    replayButton.style.display = showButton ? 'block' : 'none';
+}
+
+// Fin de partie, désactiver la saisie
+function endGame() {
+    gameOver = true; // Désactiver les entrées utilisateur
+}
+
+// Réinitialiser le jeu
+function resetGame() {
+    gameOver = false; // Réactiver les entrées
+    currentRow = 0;
+    currentCol = 1;
+    correctLetters = []; // Réinitialiser les lettres correctes
+    messageContainer.textContent = ''; // Effacer le message
+    messageContainer.style.display = 'none'; // Cacher le message
+    replayButton.style.display = 'none'; // Cacher le bouton rejouer
+
+    selectRandomWord().then(word => {
+        if (!word) {
+            showMessage('Erreur lors de la récupération du mot à deviner.');
+            return;
+        }
+        secretWord = word;
+        console.log(word);
+        firstLetterLocked = secretWord[0]; // Mettre à jour la première lettre
+
+        updateGridSize(); // Mettre à jour la taille de la grille pour le nouveau mot
+        setFirstLetter(); // Fixer la première lettre sur la nouvelle grille
+        placeCorrectLetters(); // Placer les lettres correctes si elles existent
+    });
+}
+
+// Initialiser le jeu
+function initGame() {
+    selectRandomWord().then(word => {
+        if (!word) {
+            showMessage('Erreur lors de la récupération du mot à deviner.');
+            return;
+        }
+        secretWord = word;
+        console.log(word);
+        firstLetterLocked = secretWord[0];
+        updateGridSize();
+        setFirstLetter();
+    });
+}
+
+// Écouter les entrées clavier
 document.addEventListener('keydown', (e) => {
     if (gameOver) return; // Empêche la modification si la partie est terminée
     const cells = document.querySelectorAll('.grid-cell');
@@ -87,6 +152,44 @@ function validateAttempt() {
     const cells = document.querySelectorAll('.grid-cell');
     const attempt = Array.from({ length: secretWord.length }, (_, i) => cells[currentRow * secretWord.length + i].querySelector('.cell-content').textContent).join('');
 
+    // Vérifier si le mot existe via l'API
+    fetch(`https://localhost:7110/api/Lexique/verify?word=${attempt}`)
+        .then(response => {
+            if (!response.ok) {
+                console.error('Échec de la vérification du mot');
+                return;
+            }
+            return response.json();
+        })
+        .then(exists => {
+            if (!exists) {
+                showMessage(`Le mot "${attempt}" n'existe pas.`);
+                // Effacer la ligne actuelle (sauf les lettres fixes)
+                for (let i = 0; i < secretWord.length; i++) {
+                    const cell = cells[currentRow * secretWord.length + i];
+                    const cellContent = cell.querySelector('.cell-content');
+                    if (!cell.classList.contains('fixed')) {
+                        cellContent.textContent = '';
+                    }
+                    cell.classList.remove('correct', 'misplaced', 'wrong');
+                }
+                currentCol = 1;
+                return;
+            }
+
+            // Si le mot existe, cacher le message
+            messageContainer.style.display = 'none';
+
+            // Procéder à la validation de l'essai
+            processAttempt(attempt, cells);
+        })
+        .catch(error => {
+            console.error('Erreur lors de la vérification du mot:', error);
+        });
+}
+
+// Fonction pour traiter l'essai
+function processAttempt(attempt, cells) {
     let secretArray = secretWord.split(''); // Créer une copie du mot secret
     let attemptArray = attempt.split('');   // Créer une copie de l'essai de l'utilisateur
 
@@ -104,7 +207,7 @@ function validateAttempt() {
         }
     }
 
-    // Vérifier les lettres mal placées (qui existent dans le mot mais à une mauvaise place)
+    // Vérifier les lettres mal placées
     for (let i = 0; i < secretWord.length; i++) {
         const cell = cells[currentRow * secretWord.length + i];
         const cellContent = cell.querySelector('.cell-content');
@@ -119,10 +222,10 @@ function validateAttempt() {
     }
 
     if (attempt === secretWord) {
-        showMessage("Bravo ! Vous avez trouvé le mot.");
+        showMessage("Bravo ! Vous avez trouvé le mot.", true);
         endGame();
     } else if (currentRow === 5) { // Plus de tentatives restantes
-        showMessage(`Dommage, le mot était "${secretWord}".`);
+        showMessage(`Dommage, le mot était "${secretWord}".`, true);
         endGame();
     } else {
         currentRow++;
@@ -132,45 +235,5 @@ function validateAttempt() {
     }
 }
 
-// Placer les lettres correctes sur la ligne suivante
-function placeCorrectLetters() {
-    const cells = document.querySelectorAll('.grid-cell');
-    for (let i = 0; i < secretWord.length; i++) {
-        if (correctLetters[i]) {
-            const cell = cells[currentRow * secretWord.length + i];
-            const cellContent = cell.querySelector('.cell-content');
-            cellContent.textContent = correctLetters[i];
-        }
-    }
-}
-
-// Afficher un message sous la grille
-function showMessage(msg) {
-    document.getElementById("message").style.display = 'block';
-    document.getElementById("message").textContent = msg;
-    document.getElementById("replayButton").style.display = 'block'; // Afficher le bouton rejouer
-}
-
-// Fin de partie, désactiver la saisie
-function endGame() {
-    gameOver = true; // Désactiver les entrées utilisateur
-}
-
-// Réinitialiser le jeu
-function resetGame() {
-    gameOver = false; // Réactiver les entrées
-    currentRow = 0;
-    currentCol = 1;
-    correctLetters = []; // Réinitialiser les lettres correctes
-    secretWord = selectRandomWord(); // Choisir un nouveau mot aléatoire
-    firstLetterLocked = secretWord[0]; // Mettre à jour la première lettre
-
-    updateGridSize(); // Mettre à jour la taille de la grille pour le nouveau mot
-    setFirstLetter(); // Fixer la première lettre sur la nouvelle grille
-    messageContainer.textContent = ''; // Effacer le message
-    messageContainer.style.display = 'none'; // Cacher le message
-    replayButton.style.display = 'none'; // Cacher le bouton rejouer
-}
-
-// Initialiser le jeu avec la première lettre
-setFirstLetter();
+// Démarrer le jeu
+initGame();
