@@ -14,16 +14,16 @@ replayButton.addEventListener("click", resetGame);
 
 // Fonction pour sélectionner un mot aléatoire depuis l'API
 function selectRandomWord() {
-    return fetch('https://localhost:7110/api/Lexique/randomword/')
+    return fetch('https://localhost:7228/Motus/')
         .then(response => {
             if (!response.ok) {
                 console.error('Échec de la récupération du mot aléatoire');
                 return null;
             }
-            return response.text();
+            return response.json();
         })
         .then(word => {
-            return word ? word.toUpperCase() : null;
+            return word.result ? word.result.toUpperCase() : null;
         })
         .catch(error => {
             console.error('Erreur lors de la récupération du mot aléatoire:', error);
@@ -153,7 +153,7 @@ function validateAttempt() {
     const attempt = Array.from({ length: secretWord.length }, (_, i) => cells[currentRow * secretWord.length + i].querySelector('.cell-content').textContent).join('');
 
     // Vérifier si le mot existe via l'API
-    fetch(`https://localhost:7110/api/Lexique/verify?word=${attempt}`)
+    fetch(`https://localhost:7228/Motus/check/${attempt}`)
         .then(response => {
             if (!response.ok) {
                 console.error('Échec de la vérification du mot');
@@ -162,7 +162,7 @@ function validateAttempt() {
             return response.json();
         })
         .then(exists => {
-            if (!exists) {
+            if (!exists.result) {
                 showMessage(`Le mot "${attempt}" n'existe pas.`);
                 // Effacer la ligne actuelle (sauf les lettres fixes)
                 for (let i = 0; i < secretWord.length; i++) {

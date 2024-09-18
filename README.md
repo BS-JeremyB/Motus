@@ -210,20 +210,53 @@ Nous allons ajouter des div pour représenter les cellules de la grille.
 Nous allons transformer les cellules pour qu'elles contiennent des inputs.
 
 ```javascript
-for (let i = 0; i < rows; i++) {
-    const row = document.createElement('div');
-    row.classList.add('row');
-    for (let j = 0; j < cols; j++) {
-        const cell = document.createElement('div');
-        cell.classList.add('cell');
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.maxLength = 1;
-        cell.appendChild(input);
-        row.appendChild(cell);
+<script>
+    const grid = document.getElementById('grid');
+    const rows = 6;
+    const cols = 8;
+    let currentRow = 0;
+    let currentCol = 0;
+
+    // Générer la grille
+    for (let i = 0; i < rows; i++) {
+        const row = document.createElement('div');
+        row.classList.add('row');
+        for (let j = 0; j < cols; j++) {
+            const cell = document.createElement('div');
+            cell.classList.add('cell');
+            cell.textContent = ''; // Laisser vide pour remplir plus tard
+            row.appendChild(cell);
+        }
+        grid.appendChild(row);
     }
-    grid.appendChild(row);
-}
+
+    // Fonction pour gérer les frappes de clavier
+    document.addEventListener('keydown', handleKeyPress);
+
+    function handleKeyPress(e) {
+        // Limiter aux lettres de A à Z et à la touche "Enter"
+        if (e.key.match(/^[a-zA-Z]$/)) {
+            const rows = document.querySelectorAll('.row');
+            const cells = rows[currentRow].querySelectorAll('.cell');
+            if (currentCol < cols) {
+                cells[currentCol].textContent = e.key.toUpperCase();
+                currentCol++;
+            }
+        } else if (e.key === 'Backspace') {
+            if (currentCol > 0) {
+                currentCol--;
+                const rows = document.querySelectorAll('.row');
+                const cells = rows[currentRow].querySelectorAll('.cell');
+                cells[currentCol].textContent = '';
+            }
+        } else if (e.key === 'Enter') {
+            if (currentCol === cols) {
+                currentRow++;
+                currentCol = 0; // Réinitialiser à la première colonne de la ligne suivante
+            }
+        }
+    }
+</script>
 ```
 
 #### **3.2 Limiter la saisie aux lettres majuscules de l'alphabet**
@@ -343,11 +376,11 @@ console.log("Mot secret :", secretWord); // Pour les tests
 
 ```javascript
 function validateAttempt() {
-    const inputs = Array.from(grid.querySelectorAll('input'));
-    const start = currentRow * cols;
-    const end = start + cols;
-    const rowInputs = inputs.slice(start, end);
-    const attempt = rowInputs.map(input => input.value).join('');
+    const rows = document.querySelectorAll('.row');
+    const cells = rows[currentRow].querySelectorAll('.cell');
+    
+
+    const attempt = Array.from(cells).map(cell => cell.textContent).join('');
 
     if (attempt.length !== cols) {
         alert("Veuillez compléter la ligne.");
@@ -359,19 +392,23 @@ function validateAttempt() {
     } else {
         alert('Essayez encore.');
         currentRow++;
-        if (currentRow >= rows) {
+        if (currentRow >= rows.length) {
             alert(`Dommage, le mot était "${secretWord}".`);
         }
     }
 }
+
+
 ```
 
 **Appeler `validateAttempt` après que l'utilisateur a rempli une ligne :**
 
 ```javascript
-if (rowInputs.every(input => input.value !== '')) {
-    validateAttempt();
-}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && currentCol === cols) {
+        validateAttempt();
+    }
+});
 ```
 
 #### **6.2 Indiquer à l'utilisateur s'il a trouvé le mot ou non**
@@ -412,36 +449,50 @@ if (rowInputs.every(input => input.value !== '')) {
 
 ```javascript
 function validateAttempt() {
-    // ... (code précédent)
+    const rows = document.querySelectorAll('.row');
+    const cells = rows[currentRow].querySelectorAll('.cell');
+    
+    // Récupérer la tentative actuelle
+    const attempt = Array.from(cells).map(cell => cell.textContent).join('');
+
     let secretArray = secretWord.split('');
     let attemptArray = attempt.split('');
 
     // Vérifier les lettres correctes (bien placées)
     for (let i = 0; i < cols; i++) {
-        const cell = rowInputs[i].parentElement;
+        const cell = cells[i];
         if (attemptArray[i] === secretArray[i]) {
             cell.classList.add('correct');
-            secretArray[i] = null;
-            attemptArray[i] = null;
+            secretArray[i] = null; // Marquer la lettre comme utilisée
+            attemptArray[i] = null; // Marquer la lettre comme vérifiée
         }
     }
 
     // Vérifier les lettres mal placées
     for (let i = 0; i < cols; i++) {
-        if (attemptArray[i]) {
-            const cell = rowInputs[i].parentElement;
+        if (attemptArray[i]) { // Si la lettre n'a pas déjà été marquée comme correcte
+            const cell = cells[i];
             const index = secretArray.indexOf(attemptArray[i]);
             if (index !== -1) {
                 cell.classList.add('misplaced');
-                secretArray[index] = null;
+                secretArray[index] = null; // Marquer cette lettre comme utilisée
             } else {
                 cell.classList.add('wrong');
             }
         }
     }
 
-    // ... (suite du code)
+    // Passe à la ligne suivante ou fin du jeu
+    if (attempt === secretWord) {
+        alert('Bravo ! Vous avez trouvé le mot.');
+    } else {
+        currentRow++;
+        if (currentRow >= rows.length) {
+            alert(`Dommage, le mot était "${secretWord}".`);
+        }
+    }
 }
+
 ```
 
 **Test :**
